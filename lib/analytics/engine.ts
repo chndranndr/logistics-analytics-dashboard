@@ -16,6 +16,9 @@ import {
   TIME_GRAINS,
   type QuerySpec,
 } from "@/lib/analytics/spec";
+import { selectChart, type ChartSpec } from "@/lib/chart/select";
+
+export type { ChartSpec };
 
 export class QueryError extends Error {
   constructor(message: string) {
@@ -23,10 +26,6 @@ export class QueryError extends Error {
     this.name = "QueryError";
   }
 }
-
-export type ChartSpec = {
-  type: "figure" | "line" | "bar" | "bar_horizontal";
-};
 
 export type QueryRow = {
   key: string;
@@ -175,11 +174,6 @@ function sortRows(rows: QueryRow[], sort: QuerySpec["sort"]): QueryRow[] {
   });
 }
 
-// Temporary placeholder until Task 5 implements lib/chart/select.ts
-function placeholderSelectChart(): ChartSpec {
-  return { type: "figure" };
-}
-
 export function runQuery(
   spec: QuerySpec,
   orders: readonly Order[] = getOrders(),
@@ -286,6 +280,6 @@ export function runQuery(
     },
     matchedOrders,
     notes,
-    chart: placeholderSelectChart(),
+    chart: selectChart(spec.groupBy, rows.length),
   };
 }
