@@ -1,0 +1,24 @@
+{"question":"Show delayed orders by week for the last 3 months","tool":"query","expect":{"metric":"delayed_count","groupBy":"week","dateRange":{"type":"relative","unit":"month","count":3}}}
+{"question":"Which carrier has the highest delay rate?","tool":"query","expect":{"metric":"delay_rate","groupBy":"carrier","sort":"value_desc"}}
+{"question":"How many orders were delivered late last month?","tool":"query","expect":{"metric":"delayed_count","groupBy":null,"dateRange":{"type":"relative","unit":"month","count":1}}}
+{"question":"How many orders do we have in total?","tool":"query","expect":{"metric":"order_count","groupBy":null,"dateRange":{"type":"all"}}}
+{"question":"What is our on-time delivery rate?","tool":"query","expect":{"metric":"on_time_rate","groupBy":null}}
+{"question":"Average delivery time by carrier","tool":"query","expect":{"metric":"avg_delivery_days","groupBy":"carrier"}}
+{"question":"Order volume per month","tool":"query","expect":{"metric":"order_count","groupBy":"month"}}
+{"question":"On-time rate by region","tool":"query","expect":{"metric":"on_time_rate","groupBy":"region"}}
+{"question":"Which warehouse ships the most orders?","tool":"query","expect":{"metric":"order_count","groupBy":"warehouse","sort":"value_desc"}}
+{"question":"How many units did we sell by product category?","tool":"query","expect":{"metric":"total_quantity","groupBy":"product_category"}}
+{"question":"Total order value in March","tool":"query","expect":{"metric":"total_order_value","dateRange":{"type":"absolute","from":"2025-03-01","to":"2025-03-31"}}}
+{"question":"How many fedex orders were delayed?","tool":"query","expect":{"metric":"delayed_count","filters":{"carrier":["FedEx"]}}}
+{"question":"Delay rate for UK orders","tool":"query","expect":{"metric":"delay_rate","filters":{"region":["UK"]}}}
+{"question":"Orders by status","tool":"query","expect":{"metric":"order_count","groupBy":"status"}}
+{"question":"How many orders last week?","tool":"query","expect":{"metric":"order_count","dateRange":{"type":"relative","unit":"week","count":1}}}
+{"question":"Which destination city has the lowest on-time rate?","tool":"query","expect":{"metric":"on_time_rate","groupBy":"destination_city","sort":"value_asc"}}
+{"question":"How many promo orders were there?","tool":"query","expect":{"metric":"order_count","filters":{"is_promo":true}}}
+{"question":"Predict demand for the next 4 months","tool":"forecast","expect":{"scope":{"type":"all"},"horizonMonths":4}}
+{"question":"Forecast CRAYON demand for the next 3 months","tool":"forecast","expect":{"scope":{"type":"category","category":"CRAYON"},"horizonMonths":3}}
+{"question":"Predict demand for SKU CRAYON-0008 for the next 4 months","tool":"forecast","expect":{"scope":{"type":"sku","sku":"CRAYON-0008"},"horizonMonths":4}}
+{"question":"How much inventory should I plan for the next 2 months?","tool":"forecast","expect":{"horizonMonths":2}}
+{"question":"What is the weather in London?","tool":"none","expect":{}}
+{"question":"What is our profit margin?","tool":"none","expect":{}}
+{"question":"Write a poem about trucks","tool":"none","expect":{}}
