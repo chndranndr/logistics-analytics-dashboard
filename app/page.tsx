@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { ChatPanel } from "@/components/chat/ChatPanel";
 import { CarrierDelayChart } from "@/components/dashboard/CarrierDelayChart";
 import { DeliveryPerformanceChart } from "@/components/dashboard/DeliveryPerformanceChart";
 import { FilterBar } from "@/components/dashboard/FilterBar";
@@ -181,7 +182,7 @@ export default function HomePage({
   searchParams: SearchParams;
 }) {
   return (
-    <main className="mx-auto min-h-screen max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <main className="mx-auto min-h-screen max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
       <header className="mb-6">
         <h1 className="text-2xl font-bold tracking-tight text-slate-900">
           Logistics Analytics Dashboard
@@ -191,15 +192,23 @@ export default function HomePage({
         </p>
       </header>
 
-      <Suspense
-        fallback={
-          <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500">
-            Loading dashboard...
-          </div>
-        }
-      >
-        <DashboardContent searchParams={searchParams} />
-      </Suspense>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
+        <div className="lg:col-span-7 xl:col-span-8">
+          <Suspense
+            fallback={
+              <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500">
+                Loading dashboard...
+              </div>
+            }
+          >
+            <DashboardContent searchParams={searchParams} />
+          </Suspense>
+        </div>
+
+        <aside className="lg:col-span-5 xl:col-span-4">
+          <ChatPanel />
+        </aside>
+      </div>
     </main>
   );
 }
