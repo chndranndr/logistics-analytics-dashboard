@@ -22,3 +22,9 @@
 {"question":"What is the weather in London?","tool":"none","expect":{}}
 {"question":"What is our profit margin?","tool":"none","expect":{}}
 {"question":"Write a poem about trucks","tool":"none","expect":{}}
+{"question":"Orders last quarter","tool":"query","expect":{"metric":"order_count","dateRange":{"type":"relative","unit":"month","count":3}}}
+{"question":"How many orders did UPS deliver in Q2?","tool":"query","expect":{"metric":"delivered_count","filters":{"carrier":["UPS"]},"dateRange":{"type":"absolute","from":"2025-04-01","to":"2025-06-30"}}}
+{"question":"Which region is the worst?","tool":"query","expect":{"groupBy":"region"}}
+{"question":"Delay rate by carrier by month","tool":"query","expect":{"metric":"delay_rate"}}
+{"question":"Show me delayed FedEx orders in the EU","tool":"query","expect":{"metric":"delayed_count","filters":{"carrier":["FedEx"],"region":["EU"]}}}
+{"question":"What will our revenue be next year?","tool":"none","expect":{}}

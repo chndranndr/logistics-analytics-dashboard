@@ -43,14 +43,25 @@ Live URL: *Pending Vercel deployment*
 - **Deterministic engines (`lib/analytics/`, `lib/forecast/`, `lib/chart/`):** Pure functions (`runQuery`, `runForecast`, `selectChart`) with no AI SDK imports. Both the server-rendered dashboard (`app/page.tsx`) and the chat endpoint (`app/api/chat/route.ts`) call the same engines.
 - **Data flow (chat):** User question → `POST /api/chat` (length check + per-IP rate limit) → `interpret()` calls `generateText` with `query` and `forecast` tools (max 3 steps) → engine computes `QueryResult` / `ForecastResult` → `isGrounded()` verifies narrative numbers against tool outputs → response renders narrative, deterministic chart/figure, and `TracePanel` (`"How this was answered"`).
 
-## 4. AI Approach
+## 4. Key Design Decisions
+
+| Decision | Why | Cost |
+|---|---|---|
+| In-memory data, no database | No setup, no connection failures, and trivially correct reads for 400 rows | Does not scale past a dataset that fits in memory |
+| Structured spec, no SQL | No SQL injection surface, full validation, and every query is explainable | Queries outside the spec are unsupported |
+| No agent framework | The flow is linear with two tools; a graph adds a layer without adding capability | Would need an orchestrator if complex branching flows were added |
+| Rule-based chart selection | Deterministic and unit-testable mapping from result shape to chart type | No stylistic judgement from the model |
+| No streaming | Answers are short, and a stateless single JSON response is simpler to test, trace, and evaluate | Full response waits for completion; follow-ups must be asked as a full question |
+| Fixed reference date (`2026-01-01`) | Relative ranges like "last month" always return data from the 2025 dataset | Would need to become the real clock with a live data feed |
+
+## 5. AI Approach
 
 - **Tool routing with structured schemas:** Instead of generating SQL, the model chooses between two Zod-validated tools:
   - `query` (`QuerySpecSchema`): counts, rates, averages, and breakdowns by time grain or category dimension, with case-insensitive filter normalization and relative date resolution against `2026-01-01`.
   - `forecast` (`ForecastSpecSchema`): 1–6 month demand forecasts and inventory recommendations (`expectedDemand`, `safetyStock`, `recommended`) selecting between a 3-month moving average and linear trend by Oct–Dec 2025 backtest MAE.
 - **Guardrails:** Invalid filter/category inputs return a `QueryError` payload so the model can self-correct within the 3-step limit. Out-of-scope questions trigger a refusal without calling a tool. A runtime groundedness check replaces any response containing uncomputed numbers with deterministic `fallbackText`.
 
-## 5. Metric Definitions and Assumptions
+## 6. Metric Definitions and Assumptions
 
 | Metric | Definition |
 |---|---|
@@ -71,26 +82,35 @@ Key assumptions:
 - **Forecasting limits:** With 12 monthly points (2025), seasonality is not modeled; canceled orders are excluded from demand; SKU-level requests resolve to the SKU's product category (since no SKU has more than 3 orders); inventory numbers represent units to have available over the horizon rather than reorder points.
 - **Small samples:** Groups with fewer than 10 completed orders are flagged rather than hidden.
 
-## 6. Limitations
+## 7. Limitations
 
 - One metric and at most one grouping dimension per query (no two-dimensional cross-tabs).
 - No period-over-period comparisons in a single query.
 - No multi-turn conversation memory (each question is independent).
 - No causal root-cause analysis beyond dimensional breakdowns.
 - No SKU-, carrier-, region-, or client-level demand forecasts, and no stock-on-hand or supplier lead-time data.
+- The number check is a heuristic and can pass a small wrong number if it happens to appear elsewhere in the serialized tool result.
+- The rate limit is stored in memory for each server instance rather than shared globally.
+- The routing eval result is from a single run, and the underlying model is not deterministic.
 
-## 7. Evaluation
+## 8. Evaluation
 
 - **Unit tests (`npm test`):** 7 test files, 31 tests passing — asserting CSV row parsing, UTC relative date math, all golden values from `docs/PRD.md` section 6 / `docs/IMPLEMENTATION_PLAN.md` section 3, chart selection rules, forecast backtest/inventory values, and groundedness checks.
-- **Routing eval (`npm run eval`):** 24 cases in `evals/routing.jsonl` covering queries, relative/absolute dates, filter normalization, forecasts, SKU fallback, and out-of-scope refusals — **24 / 24 passing**.
+- **Routing eval (`npm run eval`):** 30 cases in `evals/routing.jsonl` covering queries, relative/absolute dates, filter normalization, forecasts, SKU fallback, and out-of-scope refusals — **29 / 30 passing**. Case 29 ("Show me delayed FedEx orders in the EU") failed because the model selected `order_count` instead of `delayed_count`.
 
-## 8. Future Improvements
+## 9. Future Improvements
 
 1. Back `QuerySpec` with PostgreSQL or DuckDB parameterized queries if data outgrows in-memory CSV loading.
 2. Support two-dimension breakdowns and period-over-period comparisons.
-3. Add multi-step analysis chaining multiple tool calls to investigate "why" questions.
+3. Period comparison and two-dimension questions as planned multi-step analysis.
 4. Incorporate seasonal forecasting and true reorder points once multi-year history, stock levels, and lead times are available.
 5. Add authentication and per-client data isolation.
 6. Run the routing eval automatically in CI on prompt or schema changes.
 
-## 9. AI Tool Disclosure
+## 10. Documents
+
+- [docs/PRD.md](docs/PRD.md)
+- [docs/DESIGN.md](docs/DESIGN.md)
+- [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)
+
+## 11. AI Tool Disclosure
