@@ -225,7 +225,9 @@ export function runQuery(
         grouped.set(key, [order]);
       }
     }
-    const keys = listBuckets(dateFrom, dateTo, grain);
+    const bucketFrom = dateFrom > dataMin ? dateFrom : dataMin;
+    const bucketTo = dateTo < dataMax ? dateTo : dataMax;
+    const keys = listBuckets(bucketFrom, bucketTo, grain);
     rows = keys.map((key) => {
       const metric = computeMetric(spec.metric, grouped.get(key) ?? []);
       return { key, value: metric.value, n: metric.n };
@@ -261,8 +263,13 @@ export function runQuery(
     isCategoryDimension(spec.groupBy) &&
     RATE_OR_AVG_METRICS.has(spec.metric)
   ) {
-    for (const row of rows) {
-      if (row.n < SMALL_SAMPLE) {
+    const smallRows = rows.filter((row) => row.n < SMALL_SAMPLE);
+    if (smallRows.length > 3) {
+      notes.push(
+        `${smallRows.length} of ${rows.length} groups have fewer than ${SMALL_SAMPLE} completed orders`,
+      );
+    } else {
+      for (const row of smallRows) {
         notes.push(`${row.key}: small sample (${row.n} completed orders)`);
       }
     }

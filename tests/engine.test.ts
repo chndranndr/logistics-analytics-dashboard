@@ -204,4 +204,39 @@ describe("runQuery", () => {
     expect(res.matchedOrders).toBe(0);
     expect(res.rows).toEqual([{ key: "all", value: 0, n: 0 }]);
   });
+
+  it("clamps time buckets to data bounds while preserving resolved range", () => {
+    const res = runQuery({
+      ...baseSpec,
+      metric: "order_count",
+      groupBy: "day",
+      dateRange: {
+        type: "absolute",
+        from: "1000-01-01",
+        to: "9999-12-31",
+      },
+    });
+    expect(res.rows.length).toBeLessThanOrEqual(364);
+    expect(res.resolved.dateFrom).toBe("1000-01-01");
+    expect(res.resolved.dateTo).toBe("9999-12-31");
+  });
+
+  it("summarizes small-sample notes when more than 3 groups have small samples", () => {
+    const cityRes = runQuery({
+      ...baseSpec,
+      metric: "on_time_rate",
+      groupBy: "destination_city",
+    });
+    expect(cityRes.notes).toHaveLength(1);
+    expect(cityRes.notes[0]).toContain("fewer than 10 completed orders");
+
+    const carrierRes = runQuery({
+      ...baseSpec,
+      metric: "delay_rate",
+      groupBy: "carrier",
+      sort: "value_desc",
+    });
+    expect(carrierRes.notes).toHaveLength(1);
+    expect(carrierRes.notes[0]).toContain("GLS");
+  });
 });
