@@ -12,9 +12,11 @@ export function extractNumbers(text: string): number[] {
     .filter((n) => Number.isFinite(n));
 }
 
+export type EngineResult = QueryResult | ForecastResult;
+
 export function isGrounded(
   text: string,
-  result: QueryResult | ForecastResult,
+  result: EngineResult | readonly EngineResult[],
   question: string,
 ): boolean {
   const textNumbers = extractNumbers(text);

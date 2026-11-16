@@ -67,8 +67,9 @@ export async function POST(req: Request) {
 
   let text = interpretation.text;
   let grounded = true;
+  const allResults = interpretation.results.map((item) => item.result);
 
-  if (interpretation.tool === null) {
+  if (allResults.length === 0) {
     const questionNums = new Set(extractNumbers(rawQuestion));
     const textNums = extractNumbers(text);
     if (textNums.some((n) => !questionNums.has(n))) {
@@ -76,7 +77,9 @@ export async function POST(req: Request) {
       grounded = false;
     }
   } else if (interpretation.result !== null) {
-    if (!isGrounded(text, interpretation.result, rawQuestion)) {
+    if (text.trim().length === 0) {
+      text = fallbackText(interpretation.result);
+    } else if (!isGrounded(text, allResults, rawQuestion)) {
       text = fallbackText(interpretation.result);
       grounded = false;
     }
@@ -89,6 +92,10 @@ export async function POST(req: Request) {
     referenceDate: REFERENCE_DATE,
     tool: interpretation.tool,
     toolInput: interpretation.toolInput,
+    toolCalls: interpretation.results.map((item) => ({
+      tool: item.tool,
+      toolInput: item.toolInput,
+    })),
     resolved:
       interpretation.result?.kind === "query"
         ? interpretation.result.resolved
@@ -112,6 +119,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     text,
     result: interpretation.result,
+    results: interpretation.results,
     trace,
   });
 }

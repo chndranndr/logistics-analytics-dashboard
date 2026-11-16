@@ -5,10 +5,17 @@ import type { ForecastResult } from "@/lib/forecast/engine";
 import { buildSystemPrompt } from "@/lib/ai/prompt";
 import { aiTools } from "@/lib/ai/tools";
 
+export type ToolExecution = {
+  tool: "query" | "forecast";
+  toolInput: unknown;
+  result: QueryResult | ForecastResult;
+};
+
 export type Interpretation = {
   tool: "query" | "forecast" | null;
   toolInput: unknown | null;
   result: QueryResult | ForecastResult | null;
+  results: ToolExecution[];
   text: string;
   validationErrors: string[];
   usage: { inputTokens: number; outputTokens: number };
@@ -51,6 +58,7 @@ export async function interpret(question: string): Promise<Interpretation> {
   let tool: "query" | "forecast" | null = null;
   let toolInput: unknown | null = null;
   let result: QueryResult | ForecastResult | null = null;
+  const results: ToolExecution[] = [];
   const validationErrors: string[] = [];
 
   for (const step of response.steps) {
@@ -74,6 +82,11 @@ export async function interpret(question: string): Promise<Interpretation> {
         tool = tr.toolName;
         toolInput = tr.input;
         result = tr.output;
+        results.push({
+          tool: tr.toolName,
+          toolInput: tr.input,
+          result: tr.output,
+        });
       }
     }
   }
@@ -82,6 +95,7 @@ export async function interpret(question: string): Promise<Interpretation> {
     tool,
     toolInput,
     result,
+    results,
     text: response.text,
     validationErrors,
     usage: {

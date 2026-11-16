@@ -44,4 +44,22 @@ describe("grounding", () => {
       "Units ordered: 1310 units (400 orders in the sample).",
     );
   });
+
+  it("grounds text that uses numbers from two results together", () => {
+    const onTimeRateResult = runQuery({
+      metric: "on_time_rate",
+      groupBy: null,
+      filters: {},
+      dateRange: { type: "all" },
+      sort: "natural",
+      limit: null,
+    });
+
+    const ok = isGrounded(
+      "Total units ordered is 1310 across 400 orders, with an on-time rate of 84.7%.",
+      [totalQuantityResult, onTimeRateResult],
+      "How are we doing?",
+    );
+    expect(ok).toBe(true);
+  });
 });

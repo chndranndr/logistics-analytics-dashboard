@@ -20,6 +20,8 @@ Rules:
 10. If the question is not clear, make one reasonable assumption and state it in the answer.
 11. After the tool returns, answer in one to three sentences. Use only the numbers in the tool result.
 12. If the tool result has notes, include the notes in the answer.
+13. Write plain text. Do not use Markdown: no asterisks, no tables, no lists.
+14. Do not repeat all the rows of a result. The interface shows the chart and the table. Give the main finding only.
 
 Metrics:
 ${metricLines}

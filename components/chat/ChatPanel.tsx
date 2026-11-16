@@ -102,6 +102,7 @@ export function ChatPanel() {
         question,
         text: payload.text,
         result: payload.result ?? null,
+        results: Array.isArray(payload?.results) ? payload.results : undefined,
         trace: {
           tool: payload?.trace?.tool ?? null,
           toolInput: payload?.trace?.toolInput ?? null,
