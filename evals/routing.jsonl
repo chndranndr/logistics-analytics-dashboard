@@ -28,3 +28,5 @@
 {"question":"Delay rate by carrier by month","tool":"query","expect":{"metric":"delay_rate"}}
 {"question":"Show me delayed FedEx orders in the EU","tool":"query","expect":{"metric":"delayed_count","filters":{"carrier":["FedEx"],"region":["EU"]}}}
 {"question":"What will our revenue be next year?","tool":"none","expect":{}}
+{"question":"Based on the last 10 months, how much inventory should I plan for the next 3 months?","tool":"forecast","expect":{"horizonMonths":3,"historyMonths":10}}
+{"question":"Forecast the next 2 months, backtesting on the last 2 months","tool":"forecast","expect":{"horizonMonths":2,"backtestMonths":2}}

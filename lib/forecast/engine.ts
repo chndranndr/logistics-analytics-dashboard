@@ -33,8 +33,10 @@ export type ForecastResult = {
 const HISTORY_MONTHS = listBuckets("2025-01-01", "2025-12-31", "month");
 const SERVICE_LEVEL_Z = 1.65;
 
+const DEFAULT_BACKTEST_MONTHS = 3;
+const MIN_TRAIN_MONTHS = 3; // the moving average needs 3 points
+
 const STANDARD_NOTES = [
-  "The history has only 12 months. The forecast does not include seasonality.",
   "The data has no stock level and no lead time. The recommendation is the number of units to have available in the forecast period.",
   "The forecast does not include canceled orders.",
 ] as const;
@@ -145,17 +147,34 @@ export function runForecast(
     monthlyTotals.set(month, (monthlyTotals.get(month) ?? 0) + order.quantity);
   }
 
-  const history = HISTORY_MONTHS.map((month) => ({
+  const historyMonths = spec.historyMonths ?? HISTORY_MONTHS.length;
+  const backtestMonths = spec.backtestMonths ?? DEFAULT_BACKTEST_MONTHS;
+  if (historyMonths > HISTORY_MONTHS.length) {
+    throw new QueryError(
+      `The dataset has ${HISTORY_MONTHS.length} months of history; historyMonths cannot be ${historyMonths}.`,
+    );
+  }
+  const trainMonths = historyMonths - backtestMonths;
+  if (trainMonths < MIN_TRAIN_MONTHS) {
+    throw new QueryError(
+      `historyMonths ${historyMonths} minus backtestMonths ${backtestMonths} leaves ${trainMonths} months to learn from; at least ${MIN_TRAIN_MONTHS} are needed. Use a longer history or a shorter backtest.`,
+    );
+  }
+
+  const usedMonths = HISTORY_MONTHS.slice(-historyMonths);
+  const history = usedMonths.map((month) => ({
     month,
     value: monthlyTotals.get(month) ?? 0,
   }));
 
   const series = history.map((point) => point.value);
-  const train = series.slice(0, 9);
-  const actual = series.slice(9, 12);
+  const train = series.slice(0, trainMonths);
+  const actual = series.slice(trainMonths);
+  const backtestRange = `${usedMonths[trainMonths]} to ${usedMonths[usedMonths.length - 1]}`;
+  const historyRange = `${usedMonths[0]} to ${usedMonths[usedMonths.length - 1]}`;
 
-  const maBacktestPred = movingAverage(train, 3);
-  const ltBacktestPred = linearTrend(train, 3);
+  const maBacktestPred = movingAverage(train, backtestMonths);
+  const ltBacktestPred = linearTrend(train, backtestMonths);
 
   const maMaeRaw = mae(maBacktestPred, actual);
   const maRmseRaw = rmse(maBacktestPred, actual);
@@ -204,7 +223,11 @@ export function runForecast(
 
   const methodName =
     method === "moving_average" ? "3-month moving average" : "linear trend";
-  const methodology = `Selected ${methodName} via Oct–Dec 2025 backtest (moving average MAE ${backtest.moving_average.mae} / RMSE ${backtest.moving_average.rmse} vs linear trend MAE ${backtest.linear_trend.mae} / RMSE ${backtest.linear_trend.rmse}), refitted on all 12 months of 2025 with ±1.65 × RMSE × √k (~95% service level) uncertainty bands over ${spec.horizonMonths} month(s).`;
+  const methodology = `Selected ${methodName} via a ${backtestMonths}-month backtest (${backtestRange}; moving average MAE ${backtest.moving_average.mae} / RMSE ${backtest.moving_average.rmse} vs linear trend MAE ${backtest.linear_trend.mae} / RMSE ${backtest.linear_trend.rmse}), refitted on the ${historyMonths} months ${historyRange} with ±1.65 × RMSE × √k (~95% service level) uncertainty bands over ${spec.horizonMonths} month(s).`;
+  const historyNote =
+    historyMonths === HISTORY_MONTHS.length
+      ? `The history has only ${historyMonths} months. The forecast does not include seasonality.`
+      : `The forecast learns from the last ${historyMonths} of ${HISTORY_MONTHS.length} months (${historyRange}). It does not include seasonality.`;
 
   return {
     kind: "forecast",
@@ -219,6 +242,6 @@ export function runForecast(
       recommended,
     },
     methodology,
-    notes: [...extraNotes, ...STANDARD_NOTES],
+    notes: [...extraNotes, historyNote, ...STANDARD_NOTES],
   };
 }

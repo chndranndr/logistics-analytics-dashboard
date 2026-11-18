@@ -200,16 +200,20 @@ The model does not choose the chart. The same spec always yields the same chart.
   scope: { type: "all" }
        | { type: "category", category: string }
        | { type: "sku", sku: string },          // resolved to its category
-  horizonMonths: number                         // 1 to 6
+  horizonMonths: number,                        // 1 to 6
+  historyMonths?: number,                       // 4 to 12, default 12: most recent months to learn from
+  backtestMonths?: number                       // 1 to 6, default 3: most recent months held out
 }
 ```
 
+The model fills `historyMonths` and `backtestMonths` only when the user names a base period or a backtest length. The engine rejects a window that leaves fewer than 3 months to learn from (`historyMonths - backtestMonths < 3`).
+
 ### 8.2 Method
 
-1. **Build the series.** Monthly sum of `quantity` for the scope, January to December 2025, 12 points. Canceled orders are excluded; every other status counts as demand, since the customer ordered the goods.
+1. **Build the series.** Monthly sum of `quantity` for the scope, the last `historyMonths` months of 2025 (default all 12, January to December). Canceled orders are excluded; every other status counts as demand, since the customer ordered the goods.
 2. **Two candidate methods:** a 3-month moving average, and a linear trend fitted by least squares.
-3. **Backtest.** Fit each on January to September, predict October to December, measure mean absolute error. Use the method with the lower error.
-4. **Forecast** the requested horizon with the chosen method refitted on all 12 months. Values are floored at zero and rounded to whole units.
+3. **Backtest.** Hold out the last `backtestMonths` (default 3, October to December), fit each method on the earlier months, predict the held-out months, measure mean absolute error. Use the method with the lower error. The window can change the winner: on the last 10 months for all products, linear trend beats the moving average.
+4. **Forecast** the requested horizon with the chosen method refitted on all months in the window. Values are floored at zero and rounded to whole units.
 5. **Uncertainty.** The band is plus or minus 1.65 times the backtest RMSE, widening with the square root of the months ahead.
 
 ### 8.3 Inventory recommendation

@@ -105,6 +105,58 @@ describe("runForecast", () => {
     expect(res.notes).toHaveLength(4);
   });
 
+  it("learns only from the last 10 months when historyMonths is 10", () => {
+    const res = runForecast({
+      scope: { type: "all" },
+      horizonMonths: 3,
+      historyMonths: 10,
+    });
+
+    expect(res.history).toHaveLength(10);
+    expect(res.history[0].month).toBe("2025-03");
+    expect(res.backtest).toEqual({
+      moving_average: { mae: 15.67, rmse: 17.77 },
+      linear_trend: { mae: 14.21, rmse: 16.04 },
+    });
+    // The window changes the winner: linear trend now beats the moving average.
+    expect(res.method).toBe("linear_trend");
+    expect(res.forecast.map((p) => p.value)).toEqual([92, 91, 89]);
+    expect(res.inventory).toEqual({
+      expectedDemand: 272,
+      safetyStock: 46,
+      recommended: 318,
+    });
+    expect(res.methodology).toContain("2025-03 to 2025-12");
+    expect(res.notes.some((n) => n.includes("last 10 of 12 months"))).toBe(true);
+  });
+
+  it("uses the requested backtest length", () => {
+    const res = runForecast({
+      scope: { type: "all" },
+      horizonMonths: 2,
+      historyMonths: 10,
+      backtestMonths: 2,
+    });
+
+    expect(res.backtest).toEqual({
+      moving_average: { mae: 12.67, rmse: 16.14 },
+      linear_trend: { mae: 21.82, rmse: 23.38 },
+    });
+    expect(res.method).toBe("moving_average");
+    expect(res.methodology).toContain("2-month backtest (2025-11 to 2025-12");
+  });
+
+  it("rejects windows that leave fewer than 3 months to learn from", () => {
+    expect(() =>
+      runForecast({
+        scope: { type: "all" },
+        horizonMonths: 3,
+        historyMonths: 5,
+        backtestMonths: 3,
+      }),
+    ).toThrow(QueryError);
+  });
+
   it("throws QueryError for unknown category or SKU", () => {
     expect(() =>
       runForecast({
