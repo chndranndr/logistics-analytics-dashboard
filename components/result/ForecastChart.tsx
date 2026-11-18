@@ -13,6 +13,8 @@ import {
 } from "recharts";
 import type { ForecastResult } from "@/lib/forecast/engine";
 
+const TICK = { fontSize: 11, fill: "var(--text-muted)" };
+
 type ForecastChartPoint = {
   month: string;
   history: number | null;
@@ -33,15 +35,15 @@ function ForecastTooltip({
   if (!active || !payload || payload.length === 0) return null;
   const pt = payload[0].payload;
   return (
-    <div className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs shadow-sm">
-      <p className="font-semibold text-slate-900">{pt.month}</p>
+    <div className="rounded-md border border-border bg-surface px-3 py-2 text-xs shadow-md">
+      <p className="font-semibold text-text">{pt.month}</p>
       {pt.history !== null && (
-        <p className="text-slate-700">History: {pt.history} units</p>
+        <p className="text-text">History: {pt.history} units</p>
       )}
       {pt.forecast !== null && pt.lower !== null && pt.upper !== null && (
         <>
-          <p className="text-blue-700">Forecast: {pt.forecast} units</p>
-          <p className="text-slate-500">
+          <p className="text-accent">Forecast: {pt.forecast} units</p>
+          <p className="text-muted">
             Range: {pt.lower} to {pt.upper} units
           </p>
         </>
@@ -51,8 +53,6 @@ function ForecastTooltip({
 }
 
 export function ForecastChart({ result }: { result: ForecastResult }) {
-  const lastHistory = result.history[result.history.length - 1];
-
   const data: ForecastChartPoint[] = [
     ...result.history.map((pt, idx) => ({
       month: pt.month,
@@ -60,8 +60,9 @@ export function ForecastChart({ result }: { result: ForecastResult }) {
       forecast: idx === result.history.length - 1 ? pt.value : null,
       lower: null,
       upper: null,
-      bandBase: null,
-      bandSpan: null,
+      // The last observed month has no uncertainty, so the band fans out from it.
+      bandBase: idx === result.history.length - 1 ? pt.value : null,
+      bandSpan: idx === result.history.length - 1 ? 0 : null,
     })),
     ...result.forecast.map((pt) => ({
       month: pt.month,
@@ -74,9 +75,6 @@ export function ForecastChart({ result }: { result: ForecastResult }) {
     })),
   ];
 
-  // Ensure the band starts cleanly without touching history points
-  void lastHistory;
-
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -84,11 +82,11 @@ export function ForecastChart({ result }: { result: ForecastResult }) {
           data={data}
           margin={{ top: 8, right: 16, left: 0, bottom: 8 }}
         >
-          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-          <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-          <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+          <XAxis dataKey="month" tick={TICK} />
+          <YAxis allowDecimals={false} tick={TICK} />
           <Tooltip content={<ForecastTooltip />} />
-          <Legend wrapperStyle={{ fontSize: 12 }} />
+          <Legend wrapperStyle={{ fontSize: 12, color: "var(--text-muted)" }} />
           <Area
             type="monotone"
             dataKey="bandBase"
@@ -102,17 +100,18 @@ export function ForecastChart({ result }: { result: ForecastResult }) {
             type="monotone"
             dataKey="bandSpan"
             name="Uncertainty band"
+            legendType="square"
             stackId="uncertainty"
             stroke="none"
-            fill="#93c5fd"
-            fillOpacity={0.4}
+            fill="var(--chart-1)"
+            fillOpacity={0.2}
             isAnimationActive={false}
           />
           <Line
             type="monotone"
             dataKey="history"
             name="History"
-            stroke="#0f172a"
+            stroke="var(--text)"
             strokeWidth={2}
             dot={{ r: 2.5 }}
             connectNulls={false}
@@ -121,7 +120,7 @@ export function ForecastChart({ result }: { result: ForecastResult }) {
             type="monotone"
             dataKey="forecast"
             name="Forecast"
-            stroke="#2563eb"
+            stroke="var(--chart-1)"
             strokeWidth={2}
             strokeDasharray="5 5"
             dot={{ r: 3 }}

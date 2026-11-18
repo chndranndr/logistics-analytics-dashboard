@@ -1,5 +1,7 @@
 "use client";
 
+import { MessageSquare } from "lucide-react";
+
 export const SUGGESTED_QUESTIONS = [
   "Show delayed orders by week for the last 3 months",
   "Which carrier has the highest delay rate?",
@@ -18,7 +20,10 @@ export function SuggestionChips({
 }) {
   return (
     <div className="space-y-2">
-      <p className="text-xs font-medium text-slate-500">Try asking:</p>
+      <p className="flex items-center gap-1.5 text-xs font-medium text-muted">
+        <MessageSquare size={12} aria-hidden />
+        Try asking:
+      </p>
       <div className="flex flex-wrap gap-2">
         {SUGGESTED_QUESTIONS.map((q) => (
           <button
@@ -26,7 +31,7 @@ export function SuggestionChips({
             type="button"
             disabled={disabled}
             onClick={() => onSelect(q)}
-            className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-left text-xs text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800 disabled:opacity-50"
+            className="max-w-full rounded-full border border-border bg-surface-muted px-3 py-1.5 text-left text-xs text-text transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
           >
             {q}
           </button>

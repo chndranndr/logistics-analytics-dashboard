@@ -45,6 +45,22 @@ describe("grounding", () => {
     );
   });
 
+  it("fallback text for a ranking includes the n >= 10 note", () => {
+    const carrierResult = runQuery({
+      metric: "delay_rate",
+      groupBy: "carrier",
+      filters: {},
+      dateRange: { type: "all" },
+      sort: "value_desc",
+      limit: null,
+    });
+    const text = fallbackText(carrierResult);
+    expect(text).toContain("GLS");
+    expect(text).toContain(
+      "Highest with at least 10 completed orders: USPS (23.9, n=46)",
+    );
+  });
+
   it("grounds text that uses numbers from two results together", () => {
     const onTimeRateResult = runQuery({
       metric: "on_time_rate",

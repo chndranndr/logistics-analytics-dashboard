@@ -4,6 +4,13 @@ export const COMPLETED_STATUSES = ["delivered", "delayed"] as const;
 
 export const SMALL_SAMPLE = 10;
 
+/** Metrics whose value is a rate or mean, so a small `n` makes them unreliable. */
+export const RATE_OR_AVG_METRICS: ReadonlySet<MetricId> = new Set<MetricId>([
+  "on_time_rate",
+  "delay_rate",
+  "avg_delivery_days",
+]);
+
 export const METRIC_IDS = [
   "order_count",
   "delivered_count",
@@ -21,6 +28,7 @@ export type MetricDefinition = {
   label: string;
   unit: string;
   definition: string;
+  higherIsBetter: boolean | null;
 };
 
 export const METRICS: Record<MetricId, MetricDefinition> = {
@@ -28,45 +36,53 @@ export const METRICS: Record<MetricId, MetricDefinition> = {
     label: "Orders",
     unit: "orders",
     definition: "Total number of orders across all statuses.",
+    higherIsBetter: null,
   },
   delivered_count: {
     label: "Delivered (on time)",
     unit: "orders",
     definition: "Number of orders with status delivered (arrived on time).",
+    higherIsBetter: true,
   },
   delayed_count: {
     label: "Delayed",
     unit: "orders",
     definition: "Number of orders with status delayed (arrived late).",
+    higherIsBetter: false,
   },
   on_time_rate: {
     label: "On-time delivery rate",
     unit: "%",
     definition:
       "Percentage of completed orders (delivered or delayed) that arrived on time.",
+    higherIsBetter: true,
   },
   delay_rate: {
     label: "Delay rate",
     unit: "%",
     definition:
       "Percentage of completed orders (delivered or delayed) that arrived late.",
+    higherIsBetter: false,
   },
   avg_delivery_days: {
     label: "Average delivery time",
     unit: "days",
     definition:
       "Mean delivery time in days from order date to delivery date across completed orders.",
+    higherIsBetter: false,
   },
   total_quantity: {
     label: "Units ordered",
     unit: "units",
     definition: "Sum of ordered units across all orders.",
+    higherIsBetter: null,
   },
   total_order_value: {
     label: "Order value (gross)",
     unit: "USD",
     definition:
       "Gross sum of order values in USD without deducting promo discounts.",
+    higherIsBetter: null,
   },
 };
 

@@ -1,6 +1,8 @@
 import fs from "fs";
 import path from "path";
 import { interpret } from "@/lib/ai/interpret";
+import { runQuery } from "@/lib/analytics/engine";
+import { QuerySpecSchema } from "@/lib/analytics/spec";
 
 type EvalCase = {
   question: string;
@@ -73,6 +75,29 @@ function compareExpected(
   }
 }
 
+// The same question can have several correct specs (e.g. order_count with
+// status=delayed vs delayed_count). Judge by what the engine computes.
+const SPEC_DEFAULTS = {
+  groupBy: null,
+  filters: {},
+  dateRange: { type: "all" },
+  sort: "natural",
+  limit: null,
+};
+
+function sameQueryResult(expected: unknown, actual: unknown): boolean {
+  const exp = QuerySpecSchema.safeParse({
+    ...SPEC_DEFAULTS,
+    ...(expected as object),
+  });
+  const act = QuerySpecSchema.safeParse(actual);
+  if (!exp.success || !act.success) return false;
+  // `n` is a sample-size note that depends on the metric, so compare key + value only.
+  const answer = (spec: typeof exp.data) =>
+    JSON.stringify(runQuery(spec).rows.map((r) => [r.key, r.value]));
+  return answer(exp.data) === answer(act.data);
+}
+
 async function main() {
   loadEnvLocal();
 
@@ -101,6 +126,12 @@ async function main() {
         );
       } else if (expectedTool !== null) {
         compareExpected(testCase.expect, res.toolInput, "", diffs);
+        if (diffs.length > 0 && expectedTool === "query") {
+          if (sameQueryResult(testCase.expect, res.toolInput)) {
+            console.log(`   (spec differs but computed result is identical)`);
+            diffs.length = 0;
+          }
+        }
       }
 
       if (diffs.length === 0) {

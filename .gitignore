@@ -43,3 +43,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local tooling output
+/graphify-out/
+/.claude/
+
+# extra secret/credential files
+*.key
+*.p12
+*.pfx
+credentials*.json
+secrets/

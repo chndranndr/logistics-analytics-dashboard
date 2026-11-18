@@ -68,6 +68,22 @@ export function resolveDateRange(
   return { from: formatUtcDate(from), to: formatUtcDate(to) };
 }
 
+export function previousPeriod(
+  from: string,
+  to: string,
+  dataMin: string,
+): { from: string; to: string } | null {
+  const start = parseUtcDate(from);
+  const days =
+    Math.round((parseUtcDate(to).getTime() - start.getTime()) / 86_400_000) + 1;
+  const prevTo = addUtcDays(start, -1);
+  const prevFrom = formatUtcDate(addUtcDays(prevTo, -(days - 1)));
+  if (prevFrom < dataMin) {
+    return null;
+  }
+  return { from: prevFrom, to: formatUtcDate(prevTo) };
+}
+
 export function bucketKey(date: string, grain: TimeGrain): string {
   if (grain === "day") {
     return date;

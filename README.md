@@ -43,6 +43,8 @@ Live URL: *Pending Vercel deployment*
 - **Deterministic engines (`lib/analytics/`, `lib/forecast/`, `lib/chart/`):** Pure functions (`runQuery`, `runForecast`, `selectChart`) with no AI SDK imports. Both the server-rendered dashboard (`app/page.tsx`) and the chat endpoint (`app/api/chat/route.ts`) call the same engines.
 - **Data flow (chat):** User question → `POST /api/chat` (length check + per-IP rate limit) → `interpret()` calls `generateText` with `query` and `forecast` tools (max 3 steps) → engine computes `QueryResult` / `ForecastResult` → `isGrounded()` verifies narrative numbers against tool outputs → response renders narrative, deterministic chart/figure, and `TracePanel` (`"How this was answered"`).
 
+- **Dashboard interactions:** Filters (date range with presets, carrier, region, warehouse, category) live in the URL and are shown as removable chips. Clicking a month in the two time charts, or a bar in the carrier chart, applies that filter to the whole dashboard. KPI cards show a sparkline and a change versus the previous period of the same length when a date range is selected. A "Needs attention" panel lists findings computed by `lib/analytics/insights.ts` (highest delay-rate carrier and lowest on-time region among groups with at least 10 completed orders, worst month); clicking one applies its filter. Theme is light or dark via semantic tokens in `app/globals.css`.
+
 ## 4. Key Design Decisions
 
 | Decision | Why | Cost |
@@ -95,17 +97,16 @@ Key assumptions:
 
 ## 8. Evaluation
 
-- **Unit tests (`npm test`):** 7 test files, 31 tests passing — asserting CSV row parsing, UTC relative date math, all golden values from `docs/PRD.md` section 6 / `docs/IMPLEMENTATION_PLAN.md` section 3, chart selection rules, forecast backtest/inventory values, and groundedness checks.
-- **Routing eval (`npm run eval`):** 30 cases in `evals/routing.jsonl` covering queries, relative/absolute dates, filter normalization, forecasts, SKU fallback, and out-of-scope refusals — **29 / 30 passing**. Case 29 ("Show me delayed FedEx orders in the EU") failed because the model selected `order_count` instead of `delayed_count`.
+- **Unit tests (`npm test`):** 8 test files, 38 tests passing — asserting CSV row parsing, UTC relative date math (including `previousPeriod`), all golden values from `docs/PRD.md` section 6 / `docs/IMPLEMENTATION_PLAN.md` section 3, the "highest with at least 10 completed orders" ranking note, dashboard insights, chart selection rules, forecast backtest/inventory values, and groundedness checks. There are no UI component tests; the UI was checked manually in a browser (light and dark, 375px width, filters, chart clicks, chat).
+- **Routing eval (`npm run eval`):** 30 cases in `evals/routing.jsonl` covering queries, relative/absolute dates, filter normalization, forecasts, SKU fallback, and out-of-scope refusals — **30 / 30 passing** in the latest single run (it was 29 / 30 before the scoring change below). Case 29 ("Show me delayed FedEx orders in the EU") used to fail because the model chose `order_count` with a `status = delayed` filter instead of `delayed_count`. Both forms return the same answer (5 orders); in three repeat runs the model produced three different equivalent specs. The eval compared specs field by field, so it under-counted here. `evals/run.ts` now falls back to comparing computed results (`key` and `value` rows from `runQuery`) when a query spec differs from the expected one, so equivalent specs pass and wrong ones still fail. In the latest run, 2 cases (25 and 29) passed only through this fallback.
 
 ## 9. Future Improvements
 
 1. Back `QuerySpec` with PostgreSQL or DuckDB parameterized queries if data outgrows in-memory CSV loading.
-2. Support two-dimension breakdowns and period-over-period comparisons.
-3. Period comparison and two-dimension questions as planned multi-step analysis.
-4. Incorporate seasonal forecasting and true reorder points once multi-year history, stock levels, and lead times are available.
-5. Add authentication and per-client data isolation.
-6. Run the routing eval automatically in CI on prompt or schema changes.
+2. Period comparison and two-dimension questions as planned multi-step analysis.
+3. Incorporate seasonal forecasting and true reorder points once multi-year history, stock levels, and lead times are available.
+4. Add authentication and per-client data isolation.
+5. Run the routing eval in CI on prompt or schema changes.
 
 ## 10. Documents
 
@@ -114,3 +115,7 @@ Key assumptions:
 - [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)
 
 ## 11. AI Tool Disclosure
+
+- **In the product:** the language model (OpenAI, set by `OPENAI_MODEL`, through the Vercel AI SDK) only picks a tool and fills a validated spec. Every number is computed by code, and narrative numbers are checked against tool output.
+- **In development:** Claude Code (Anthropic Claude models) was used to help write and review code and documentation, including the dashboard redesign, the engine additions (`previousPeriod`, ranking note, insights) and their tests, with smaller Claude subagents producing parts of the UI under review. All output was checked with the unit tests, lint, a production build and manual browser checks.
+- **[TODO, author to complete before submission]:** list any other AI tools used for earlier parts of the project (PRD, design, first implementation, eval cases) and what each was used for. This section only states what the repository history shows.

@@ -1,16 +1,31 @@
+import { PackageSearch, SearchX } from "lucide-react";
 import { Suspense } from "react";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { CarrierDelayChart } from "@/components/dashboard/CarrierDelayChart";
+import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
 import { DeliveryPerformanceChart } from "@/components/dashboard/DeliveryPerformanceChart";
 import { FilterBar } from "@/components/dashboard/FilterBar";
+import { FilterNavProvider } from "@/components/dashboard/FilterNavProvider";
+import { InsightsPanel } from "@/components/dashboard/InsightsPanel";
 import { KpiCards, type KpiItem } from "@/components/dashboard/KpiCards";
 import { OrderVolumeChart } from "@/components/dashboard/OrderVolumeChart";
+import { Card } from "@/components/ui/Card";
+import { ThemeToggle } from "@/components/ui/ThemeToggle";
+import { buildInsights, type Insight } from "@/lib/analytics/insights";
 import { QueryError, runQuery } from "@/lib/analytics/engine";
 import type { QuerySpec } from "@/lib/analytics/spec";
 import { getOrders } from "@/lib/data/orders";
+import {
+  previousPeriod,
+  resolveDateRange,
+  type DateRange,
+} from "@/lib/domain/dates";
 import { REFERENCE_DATE, type MetricId } from "@/lib/domain/metrics";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+const DATA_MIN = "2025-01-01";
+const DATA_MAX = "2025-12-30";
 
 const KPI_METRICS: MetricId[] = [
   "order_count",
@@ -18,6 +33,20 @@ const KPI_METRICS: MetricId[] = [
   "delayed_count",
   "on_time_rate",
   "avg_delivery_days",
+];
+
+const PRESET_RANGES: { label: string; range: DateRange }[] = [
+  { label: "Last 30 days", range: { type: "relative", unit: "day", count: 30 } },
+  { label: "Last 3 months", range: { type: "relative", unit: "month", count: 3 } },
+  { label: "Last 6 months", range: { type: "relative", unit: "month", count: 6 } },
+];
+
+const PRESETS = [
+  ...PRESET_RANGES.map(({ label, range }) => ({
+    label,
+    ...resolveDateRange(range, REFERENCE_DATE, DATA_MIN, DATA_MAX),
+  })),
+  { label: "All time", from: "", to: "" },
 ];
 
 function firstParam(
@@ -42,14 +71,22 @@ async function DashboardContent({
   const toParam = firstParam(params.to);
   const carrierParam = firstParam(params.carrier);
   const regionParam = firstParam(params.region);
+  const warehouseParam = firstParam(params.warehouse);
+  const categoryParam = firstParam(params.category);
 
   const orders = getOrders();
   const carriers = Array.from(new Set(orders.map((o) => o.carrier))).sort();
   const regions = Array.from(new Set(orders.map((o) => o.region))).sort();
+  const warehouses = Array.from(new Set(orders.map((o) => o.warehouse))).sort();
+  const categories = Array.from(
+    new Set(orders.map((o) => o.product_category)),
+  ).sort();
 
   const filters: QuerySpec["filters"] = {};
   if (carrierParam) filters.carrier = [carrierParam];
   if (regionParam) filters.region = [regionParam];
+  if (warehouseParam) filters.warehouse = [warehouseParam];
+  if (categoryParam) filters.product_category = [categoryParam];
 
   const validFrom = isIsoDate(fromParam) ? fromParam : "";
   const validTo = isIsoDate(toParam) ? toParam : "";
@@ -57,8 +94,8 @@ async function DashboardContent({
     validFrom || validTo
       ? {
           type: "absolute",
-          from: validFrom || "2025-01-01",
-          to: validTo || "2025-12-30",
+          from: validFrom || DATA_MIN,
+          to: validTo || DATA_MAX,
         }
       : { type: "all" };
 
@@ -71,8 +108,41 @@ async function DashboardContent({
     limit: null,
   };
 
+  function kpiFor(metric: MetricId): KpiItem {
+    const current = runQuery({ ...baseSpec, metric, groupBy: null }, orders);
+    const row = current.rows[0] ?? { value: null, n: 0 };
+    const spark = runQuery(
+      { ...baseSpec, metric, groupBy: "month", sort: "natural" },
+      orders,
+    ).rows.map((r) => r.value);
+
+    let previous: KpiItem["previous"] = null;
+    if (dateRange.type !== "all") {
+      const prevRange = previousPeriod(
+        current.resolved.dateFrom,
+        current.resolved.dateTo,
+        DATA_MIN,
+      );
+      if (prevRange) {
+        const prev = runQuery(
+          {
+            ...baseSpec,
+            metric,
+            groupBy: null,
+            dateRange: { type: "absolute", ...prevRange },
+          },
+          orders,
+        ).rows[0] ?? { value: null, n: 0 };
+        previous = { value: prev.value, n: prev.n };
+      }
+    }
+
+    return { id: metric, value: row.value, n: row.n, spark, previous };
+  }
+
   let filterError: string | null = null;
-  let kpis: KpiItem[] = KPI_METRICS.map((id) => ({ id, value: null, n: 0 }));
+  let kpis: KpiItem[] = [];
+  let insights: Insight[] = [];
   let volumeData: { key: string; value: number | null }[] = [];
   let performanceData: { month: string; delivered: number; delayed: number }[] =
     [];
@@ -80,11 +150,8 @@ async function DashboardContent({
   let carrierNotes: string[] = [];
 
   try {
-    kpis = KPI_METRICS.map((metric) => {
-      const res = runQuery({ ...baseSpec, metric, groupBy: null }, orders);
-      const row = res.rows[0] ?? { value: null, n: 0 };
-      return { id: metric, value: row.value, n: row.n };
-    });
+    kpis = KPI_METRICS.map(kpiFor);
+    insights = buildInsights(filters, dateRange, orders);
 
     const volumeRes = runQuery(
       { ...baseSpec, metric: "order_count", groupBy: "month", sort: "natural" },
@@ -138,41 +205,60 @@ async function DashboardContent({
     }
   }
 
+  const noOrders = kpis.find((k) => k.id === "order_count")?.n === 0;
+
   return (
-    <div className="space-y-6">
-      <FilterBar
-        carriers={carriers}
-        regions={regions}
-        from={validFrom}
-        to={validTo}
-        carrier={carrierParam}
-        region={regionParam}
-      />
+    <FilterNavProvider>
+      <div className="space-y-6">
+        <FilterBar
+          carriers={carriers}
+          regions={regions}
+          warehouses={warehouses}
+          categories={categories}
+          from={validFrom}
+          to={validTo}
+          carrier={carrierParam}
+          region={regionParam}
+          warehouse={warehouseParam}
+          category={categoryParam}
+          presets={PRESETS}
+        />
 
-      {filterError ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          {filterError}
-        </div>
-      ) : (
-        <>
-          <KpiCards items={kpis} />
-
-          <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-            <OrderVolumeChart data={volumeData} />
-            <DeliveryPerformanceChart data={performanceData} />
+        {filterError ? (
+          <div className="rounded-lg border border-bad/30 bg-bad/10 p-4 text-sm text-bad">
+            {filterError}
           </div>
+        ) : noOrders ? (
+          <Card className="flex flex-col items-center gap-2 py-10 text-center">
+            <SearchX className="size-8 text-muted" aria-hidden="true" />
+            <p className="font-semibold text-text">No orders match these filters</p>
+            <p className="text-sm text-muted">
+              Clear a filter above to see results again.
+            </p>
+          </Card>
+        ) : (
+          <>
+            <InsightsPanel insights={insights} />
 
-          <div>
-            <CarrierDelayChart data={carrierData} />
-            {carrierNotes.length > 0 && (
-              <p className="mt-2 text-xs text-amber-700">
-                Note: {carrierNotes.join("; ")}
-              </p>
-            )}
-          </div>
-        </>
-      )}
-    </div>
+            <KpiCards items={kpis} />
+
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <OrderVolumeChart data={volumeData} />
+              <DeliveryPerformanceChart data={performanceData} />
+            </div>
+
+            <div>
+              <CarrierDelayChart data={carrierData} />
+              {carrierNotes.length > 0 && (
+                <p className="mt-2 text-xs text-warn">
+                  Note: {carrierNotes.join("; ")}
+                </p>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </FilterNavProvider>
   );
 }
 
@@ -183,29 +269,31 @@ export default function HomePage({
 }) {
   return (
     <main className="mx-auto min-h-screen max-w-[1440px] px-4 py-6 sm:px-6 lg:px-8">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-          Logistics Analytics Dashboard
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Data: 2025-01-01 to 2025-12-30. Reference date: {REFERENCE_DATE}.
-        </p>
+      <header className="mb-6 flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
+            <PackageSearch className="size-5" aria-hidden="true" />
+          </span>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-text">
+              Logistics Analytics Dashboard
+            </h1>
+            <p className="mt-1 text-sm text-muted">
+              Data: {DATA_MIN} to {DATA_MAX}. Reference date: {REFERENCE_DATE}.
+            </p>
+          </div>
+        </div>
+        <ThemeToggle />
       </header>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
-        <div className="lg:col-span-7 xl:col-span-8">
-          <Suspense
-            fallback={
-              <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-500">
-                Loading dashboard...
-              </div>
-            }
-          >
+        <div className="min-w-0 lg:col-span-7 xl:col-span-8">
+          <Suspense fallback={<DashboardSkeleton />}>
             <DashboardContent searchParams={searchParams} />
           </Suspense>
         </div>
 
-        <aside className="lg:col-span-5 xl:col-span-4">
+        <aside className="lg:sticky lg:top-6 lg:col-span-5 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto xl:col-span-4">
           <ChatPanel />
         </aside>
       </div>

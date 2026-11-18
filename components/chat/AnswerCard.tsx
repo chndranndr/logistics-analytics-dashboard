@@ -1,10 +1,15 @@
 "use client";
 
+import { motion } from "motion/react";
+import { Info, ShieldAlert } from "lucide-react";
 import type { QueryResult } from "@/lib/analytics/engine";
 import type { ForecastResult } from "@/lib/forecast/engine";
+import { Card } from "@/components/ui/Card";
 import { ForecastChart } from "@/components/result/ForecastChart";
 import { ResultChart } from "@/components/result/ResultChart";
 import { TracePanel, type TraceSummary } from "@/components/result/TracePanel";
+import { TrajectoryPanel } from "@/components/result/TrajectoryPanel";
+import type { TrajectoryEvent } from "@/lib/ai/trajectory";
 
 export type AnswerResultItem = {
   tool: "query" | "forecast";
@@ -19,10 +24,17 @@ export type ChatEntry = {
   result: QueryResult | ForecastResult | null;
   results?: AnswerResultItem[];
   trace: TraceSummary;
+  referenceDate: string | null;
+  matchedOrders: number | null;
+  grounded: boolean;
+  trajectory: TrajectoryEvent[];
+  totalMs: number;
+  model: string | null;
 };
 
 export function AnswerCard({ entry }: { entry: ChatEntry }) {
-  const { question, text, result, results, trace } = entry;
+  const { question, text, result, results, trace, referenceDate, matchedOrders, grounded } =
+    entry;
   const items: AnswerResultItem[] =
     results && results.length > 0
       ? results
@@ -45,99 +57,139 @@ export function AnswerCard({ entry }: { entry: ChatEntry }) {
         item.result.kind === "query" && item.result.matchedOrders === 0,
     );
 
+  const notes = Array.from(
+    new Set(items.flatMap((item) => item.result.notes)),
+  );
+
+  const meta = [
+    referenceDate && `Reference date ${referenceDate}`,
+    matchedOrders !== null && `${matchedOrders.toLocaleString("en-US")} orders matched`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
-    <article className="space-y-3 rounded-lg border border-slate-200 bg-white p-4 shadow-xs">
-      <p className="text-xs font-semibold text-slate-500">{question}</p>
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+      <Card className="space-y-3">
+        <p className="text-xs font-semibold text-muted">{question}</p>
 
-      <p className="text-sm leading-relaxed text-slate-900">
-        {allEmptyQueries ? "No orders match this question." : text}
-      </p>
+        <p className="text-sm leading-relaxed text-text">
+          {allEmptyQueries ? "No orders match this question." : text}
+        </p>
 
-      {items.length === 0 ? (
-        <TracePanel trace={trace} result={null} />
-      ) : (
-        <div className="space-y-4">
-          {items.map((item, idx) => {
-            const isEmptyMatch =
-              item.result.kind === "query" && item.result.matchedOrders === 0;
+        {!grounded && (
+          <p className="flex items-center gap-1.5 text-xs text-muted">
+            <ShieldAlert size={14} className="shrink-0 text-warn" aria-hidden />
+            Answer replaced by a safe summary (numbers could not be verified).
+          </p>
+        )}
 
-            return (
-              <div key={idx} className="space-y-3">
-                {item.result.kind === "query" && !isEmptyMatch && (
-                  <ResultChart result={item.result} />
-                )}
+        {meta && <p className="text-xs text-muted">{meta}</p>}
 
-                {item.result.kind === "query" &&
-                  isEmptyMatch &&
-                  !allEmptyQueries && (
-                    <p className="text-xs text-slate-500">
-                      No orders match this query.
-                    </p>
+        {notes.length > 0 && (
+          <ul className="space-y-1 text-xs text-muted">
+            {notes.map((note) => (
+              <li key={note} className="flex gap-1.5">
+                <Info size={14} className="mt-px shrink-0 text-warn" aria-hidden />
+                {note}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {items.length === 0 ? (
+          <TracePanel
+            trace={trace}
+            result={null}
+            referenceDate={referenceDate}
+            matchedOrders={matchedOrders}
+          />
+        ) : (
+          <div className="space-y-4">
+            {items.map((item, idx) => {
+              const isEmptyMatch =
+                item.result.kind === "query" && item.result.matchedOrders === 0;
+
+              return (
+                <div key={idx} className="space-y-3">
+                  {item.result.kind === "query" && !isEmptyMatch && (
+                    <ResultChart result={item.result} metric={item.result.metric} />
                   )}
 
-                {item.result.kind === "forecast" && (
-                  <div className="space-y-3">
-                    <ForecastChart result={item.result} />
-
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
-                        <p className="text-[11px] font-medium text-slate-500">
-                          Expected demand
-                        </p>
-                        <p className="text-base font-semibold text-slate-900">
-                          {item.result.inventory.expectedDemand.toLocaleString(
-                            "en-US",
-                          )}{" "}
-                          units
-                        </p>
-                      </div>
-                      <div className="rounded-md border border-slate-200 bg-slate-50 p-2.5">
-                        <p className="text-[11px] font-medium text-slate-500">
-                          Safety stock
-                        </p>
-                        <p className="text-base font-semibold text-slate-900">
-                          {item.result.inventory.safetyStock.toLocaleString(
-                            "en-US",
-                          )}{" "}
-                          units
-                        </p>
-                      </div>
-                      <div className="rounded-md border border-blue-200 bg-blue-50 p-2.5">
-                        <p className="text-[11px] font-medium text-blue-700">
-                          Recommended
-                        </p>
-                        <p className="text-base font-semibold text-blue-900">
-                          {item.result.inventory.recommended.toLocaleString(
-                            "en-US",
-                          )}{" "}
-                          units
-                        </p>
-                      </div>
-                    </div>
-
-                    <p className="text-xs text-slate-600">
-                      {item.result.methodology}
-                    </p>
-
-                    {item.result.notes.length > 0 && (
-                      <ul className="list-disc space-y-0.5 pl-4 text-xs text-slate-500">
-                        {item.result.notes.map((note, noteIdx) => (
-                          <li key={noteIdx}>{note}</li>
-                        ))}
-                      </ul>
+                  {item.result.kind === "query" &&
+                    isEmptyMatch &&
+                    !allEmptyQueries && (
+                      <p className="text-xs text-muted">
+                        No orders match this query.
+                      </p>
                     )}
-                  </div>
-                )}
 
-                <TracePanel
-                  trace={{ tool: item.tool, toolInput: item.toolInput }}
-                  result={item.result}
-                />
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </article>
+                  {item.result.kind === "forecast" && (
+                    <div className="space-y-3">
+                      <ForecastChart result={item.result} />
+
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        <Card className="space-y-1">
+                          <p className="text-[11px] font-medium text-muted">
+                            Expected demand
+                          </p>
+                          <p className="text-base font-semibold text-text">
+                            {item.result.inventory.expectedDemand.toLocaleString(
+                              "en-US",
+                            )}{" "}
+                            units
+                          </p>
+                        </Card>
+                        <Card className="space-y-1">
+                          <p className="text-[11px] font-medium text-muted">
+                            Safety stock
+                          </p>
+                          <p className="text-base font-semibold text-text">
+                            {item.result.inventory.safetyStock.toLocaleString(
+                              "en-US",
+                            )}{" "}
+                            units
+                          </p>
+                        </Card>
+                        <div className="space-y-1 rounded-xl border border-accent/40 bg-accent-soft p-4">
+                          <p className="text-[11px] font-medium text-accent">
+                            Recommended
+                          </p>
+                          <p className="text-base font-semibold text-text">
+                            {item.result.inventory.recommended.toLocaleString(
+                              "en-US",
+                            )}{" "}
+                            units
+                          </p>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-muted">
+                        {item.result.methodology}
+                      </p>
+                    </div>
+                  )}
+
+                  <TracePanel
+                    trace={{ tool: item.tool, toolInput: item.toolInput }}
+                    result={item.result}
+                    referenceDate={referenceDate}
+                    matchedOrders={matchedOrders}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {entry.trajectory.length > 0 && (
+          <TrajectoryPanel
+            events={entry.trajectory}
+            totalMs={entry.totalMs}
+            model={entry.model}
+          />
+        )}
+      </Card>
+    </motion.div>
   );
 }

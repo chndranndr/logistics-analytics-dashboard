@@ -1,5 +1,5 @@
 {
-  "name": "spaceship",
+  "name": "logistics-analytics-dashboard",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -14,6 +14,8 @@
     "@ai-sdk/openai": "^4.0.118",
     "ai": "^7.0.173",
     "csv-parse": "^7.0.3",
+    "lucide-react": "^1.74.0",
+    "motion": "^14.14.0",
     "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",

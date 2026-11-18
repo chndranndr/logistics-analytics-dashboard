@@ -7,6 +7,7 @@ import {
 } from "@/lib/domain/dates";
 import {
   computeMetric,
+  RATE_OR_AVG_METRICS,
   REFERENCE_DATE,
   SMALL_SAMPLE,
   type MetricId,
@@ -59,12 +60,6 @@ const STRING_FILTER_FIELDS = [
 
 type StringFilterField = (typeof STRING_FILTER_FIELDS)[number];
 type CategoryDimension = (typeof CATEGORY_DIMENSIONS)[number];
-
-const RATE_OR_AVG_METRICS = new Set<MetricId>([
-  "on_time_rate",
-  "delay_rate",
-  "avg_delivery_days",
-]);
 
 function isTimeGrain(value: string | null): value is TimeGrain {
   return (
@@ -253,6 +248,7 @@ export function runQuery(
   }
 
   rows = sortRows(rows, spec.sort);
+  const sortedRows = rows;
 
   if (spec.limit !== null) {
     rows = rows.slice(0, spec.limit);
@@ -271,6 +267,23 @@ export function runQuery(
     } else {
       for (const row of smallRows) {
         notes.push(`${row.key}: small sample (${row.n} completed orders)`);
+      }
+    }
+
+    const top = sortedRows[0];
+    if (
+      (spec.sort === "value_desc" || spec.sort === "value_asc") &&
+      top &&
+      top.n < SMALL_SAMPLE
+    ) {
+      const candidate = sortedRows.find(
+        (row) => row.n >= SMALL_SAMPLE && row.value !== null,
+      );
+      if (candidate) {
+        const label = spec.sort === "value_desc" ? "Highest" : "Lowest";
+        notes.push(
+          `${label} with at least ${SMALL_SAMPLE} completed orders: ${candidate.key} (${candidate.value}, n=${candidate.n})`,
+        );
       }
     }
   }

@@ -6,6 +6,7 @@ import {
 } from "@/lib/ai/grounding";
 import { interpret } from "@/lib/ai/interpret";
 import { checkRateLimit } from "@/lib/ai/rateLimit";
+import type { TrajectoryEvent } from "@/lib/ai/trajectory";
 import { REFERENCE_DATE } from "@/lib/domain/metrics";
 
 const MAX_QUESTION_LENGTH = 300;
@@ -65,6 +66,8 @@ export async function POST(req: Request) {
     );
   }
 
+  const guardStart = interpretation.elapsedMs;
+  const guardClock = Date.now();
   let text = interpretation.text;
   let grounded = true;
   const allResults = interpretation.results.map((item) => item.result);
@@ -84,6 +87,37 @@ export async function POST(req: Request) {
       grounded = false;
     }
   }
+
+  const guardEnd = guardStart + (Date.now() - guardClock);
+  const trajectory: TrajectoryEvent[] = [
+    {
+      id: "user",
+      kind: "user",
+      label: "Question",
+      startMs: 0,
+      durationMs: 0,
+      payload: rawQuestion,
+    },
+    ...interpretation.trajectory,
+    {
+      id: "guard",
+      kind: "guard",
+      label: grounded ? "Numbers verified" : "Answer replaced",
+      startMs: guardStart,
+      durationMs: guardEnd - guardStart,
+      payload: interpretation.text,
+      result: { grounded },
+      error: !grounded,
+    },
+    {
+      id: "answer",
+      kind: "answer",
+      label: "Final answer",
+      startMs: guardEnd,
+      durationMs: 0,
+      result: text,
+    },
+  ];
 
   const trace = {
     id: crypto.randomUUID(),
@@ -121,5 +155,6 @@ export async function POST(req: Request) {
     result: interpretation.result,
     results: interpretation.results,
     trace,
+    trajectory,
   });
 }

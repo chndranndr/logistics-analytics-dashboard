@@ -12,17 +12,15 @@ AI-powered logistics analytics dashboard (take-home assessment). This file is a 
 | Architecture, tool schemas, forecast method, evals, file layout | `docs/DESIGN.md` |
 | Build tasks in order, with golden test values | `docs/IMPLEMENTATION_PLAN.md` |
 | Original brief | `Coding assignment.docx` |
-| Dataset (read-only, 400 rows) | `mock_logistics_data.csv` |
+| Dataset (read-only, 400 rows) | `data/mock_logistics_data.csv` |
 
 If code and docs disagree, fix one of them in the same change.
 
 ## Tech stack
 
-Next.js (App Router) + TypeScript, deployed on Vercel. Zod for schemas. Vercel AI SDK with OpenAI (`OPENAI_API_KEY`, `OPENAI_MODEL`). Recharts. Vitest. Data is the CSV loaded into memory: no database, no auth.
+Next.js (App Router) + TypeScript, deployed on Vercel. Zod for schemas. Vercel AI SDK with OpenAI (`OPENAI_API_KEY`, `OPENAI_MODEL`). Recharts, lucide-react (icons), motion (animation). Tailwind v4 with semantic theme tokens in `app/globals.css` (light and dark). Vitest. Data is the CSV loaded into memory: no database, no auth.
 
 ## Build and test
-
-Not scaffolded yet. These are the intended commands; correct them once `package.json` exists.
 
 ```bash
 npm install

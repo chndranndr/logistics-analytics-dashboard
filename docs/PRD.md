@@ -4,7 +4,7 @@
 |---|---|
 | Status | Draft, pending sign-off on section 6 (metric definitions) |
 | Owner | Chandra Aji Anindra |
-| Context | Take-home assessment, AI Tech Lead, Spaceship |
+| Context | Take-home assessment, AI Tech Lead |
 | Deadline | Friday 20 November 2026, 16:30 WIB |
 | Companion doc | [DESIGN.md](DESIGN.md) |
 
@@ -22,7 +22,7 @@ The product is one web app that covers both, plus a basic demand forecast, on a 
 | User | Needs |
 |---|---|
 | Operations manager at the client | KPIs at a glance, quick answers without writing queries, a demand number to plan inventory against |
-| Reviewer (Spaceship) | A public URL that works without setup, and enough transparency to verify that every number is computed and correct |
+| Reviewer | A public URL that works without setup, and enough transparency to verify that every number is computed and correct |
 
 ## 3. Goals and non-goals
 

@@ -56,5 +56,6 @@ export function fallbackText(result: QueryResult | ForecastResult): string {
       : result.rows[0];
 
   const highestVal = highest.value === null ? "n/a" : highest.value;
-  return `${meta.label} by ${result.groupBy}. The highest is ${highest.key} with ${highestVal} ${meta.unit}. See the chart and the table.`;
+  const notes = result.notes.length > 0 ? ` Note: ${result.notes.join("; ")}.` : "";
+  return `${meta.label} by ${result.groupBy}. The highest is ${highest.key} with ${highestVal} ${meta.unit}.${notes} See the chart and the table.`;
 }

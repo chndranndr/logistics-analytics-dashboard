@@ -169,13 +169,13 @@ Decisions:
   metric, groupBy,
   resolved: { dateFrom, dateTo, filters },     // what was actually applied
   matchedOrders: number,                       // rows after filtering
-  notes: string[],                             // e.g. "GLS: only 9 orders"
+  notes: string[],                             // e.g. "GLS: small sample (7 completed orders)"
   chart: { type, xKey, yKey }                  // from chart selection
 }
 ```
 
 - Rate metrics return `n` as the denominator (completed orders in the group), so the UI can flag small samples. A group with a zero denominator returns `value: null`, never 0 or NaN.
-- Ranking questions return every group, not only the winner. "Which carrier has the highest delay rate?" returns GLS first (28.6%, 2 of 7) with a small-sample note, and the answer also names the highest carrier with at least 10 completed orders (USPS, 23.9%, 11 of 46). Groups are flagged, never hidden.
+- Ranking questions return every group, not only the winner. "Which carrier has the highest delay rate?" returns GLS first (28.6%, 2 of 7) with a small-sample note, and the answer also names the highest carrier with at least 10 completed orders (USPS, 23.9%, 11 of 46). The engine adds that second carrier as a note (`Highest with at least 10 completed orders: USPS (23.9, n=46)`) whenever a sorted category ranking starts with a group below the sample threshold, so it does not depend on the model; the note is shown on the answer card and is included in `fallbackText`. Groups are flagged, never hidden.
 - Time-grouped results fill empty buckets with zero for counts and null for rates, so a line chart does not skip a week with no orders.
 
 ### 7.3 Chart selection
@@ -246,6 +246,8 @@ question
 ```
 
 One request allows at most 3 model steps, enough for one self-correction after a validation error.
+
+A broad question ("How are we doing?") can lead the model to call a tool more than once within the step limit. Every successful result is kept: the narrative is checked against all of them together, and the answer card renders each result with its own trace.
 
 The endpoint returns one JSON response; it does not stream. Each question is independent, with no conversation memory. Both are deliberate: answers are short, and a stateless single response is simpler to test, trace, and evaluate. The cost is that a follow-up such as "and for UPS?" must be asked as a full question.
 
@@ -318,9 +320,13 @@ Scoring is exact match on the tool and on the key arguments (metric, groupBy, da
 
 ## 12. Frontend
 
-- **One page.** Dashboard on the left as the main area; chat as a panel on the right. On narrow screens the chat becomes a second tab.
-- **Dashboard** is server-rendered by calling `runQuery` directly with fixed specs. Filters live in the URL query string, so a filtered view is shareable and the server recomputes on change.
-- **Chat answer card**, top to bottom: narrative sentence, figure or chart, then a collapsed "How this was answered" panel with the resolved filters, metric definition, structured query, and result table.
+- **One page.** Dashboard on the left as the main area; chat as a sticky panel on the right. On narrow screens the chat stacks below the dashboard.
+- **Theme.** Semantic color tokens (`bg-surface`, `text-muted`, `--chart-1..4`) in `app/globals.css`, with a `.dark` override and a toggle; an inline script in `app/layout.tsx` sets the class before paint. Components use the tokens instead of hard-coded colors, except the dark JSON block in the trace panel.
+- **Dashboard** is server-rendered by calling `runQuery` directly with fixed specs. Filters (date range and presets, carrier, region, warehouse, category) live in the URL query string, so a filtered view is shareable and the server recomputes on change. Presets are resolved with `resolveDateRange` against `REFERENCE_DATE`, so they match what chat means by "last 3 months". `FilterNavProvider` wraps the dashboard and exposes one `setFilters` that all controls use (filter bar, chart clicks, insight rows), inside a transition so the page dims while the server recomputes.
+- **Cross-filtering.** Clicking a month (volume and delivery charts) or a carrier bar sets the matching URL params; clicking the active one clears it.
+- **KPI cards** show value, definition, a monthly sparkline, and, when a date range is selected, the change versus the previous period of the same length (`previousPeriod`): percentage points for rates, days for average delivery time, percent for counts. Color follows `higherIsBetter` in `METRICS`.
+- **Needs attention** (`lib/analytics/insights.ts`): up to three findings computed by `runQuery`, ignoring groups under the sample threshold. No model involved.
+- **Chat answer card**, top to bottom: narrative sentence, reference date and matched orders, notes (small samples, ranking note), figure or chart, then a collapsed "How this was answered" panel with the resolved filters, metric definition, structured query, and result table.
 - **Forecast card** adds the three inventory figures and the methodology text.
 - **States:** empty state with suggestion chips; loading indicator while the model works; a specific message for rate limit, validation failure, and provider error; "no orders match" for empty results, distinct from an error.
 - **Session history** is kept in browser storage and listed for re-running. Nothing is stored on the server.

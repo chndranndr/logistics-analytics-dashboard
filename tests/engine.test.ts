@@ -67,8 +67,9 @@ describe("runQuery", () => {
       { key: "DPD", value: 0.0, n: 16 },
     ]);
     expect(res.rows[0].key).toBe("GLS");
-    expect(res.notes).toHaveLength(1);
+    expect(res.notes).toHaveLength(2);
     expect(res.notes[0]).toContain("GLS");
+    expect(res.notes[1]).toContain("USPS");
   });
 
   it("computes monthly counts for 2025-01 to 2025-12 (section 3.2)", () => {
@@ -236,7 +237,23 @@ describe("runQuery", () => {
       groupBy: "carrier",
       sort: "value_desc",
     });
-    expect(carrierRes.notes).toHaveLength(1);
+    expect(carrierRes.notes).toHaveLength(2);
     expect(carrierRes.notes[0]).toContain("GLS");
+    expect(carrierRes.notes[1]).toBe(
+      "Highest with at least 10 completed orders: USPS (23.9, n=46)",
+    );
+  });
+
+  it("notes the lowest carrier with enough completed orders for value_asc", () => {
+    const res = runQuery({
+      ...baseSpec,
+      metric: "on_time_rate",
+      groupBy: "carrier",
+      sort: "value_asc",
+    });
+    expect(res.rows[0].key).toBe("GLS");
+    expect(res.notes).toContain(
+      "Lowest with at least 10 completed orders: USPS (76.1, n=46)",
+    );
   });
 });
