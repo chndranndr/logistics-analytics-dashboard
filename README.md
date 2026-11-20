@@ -6,6 +6,8 @@ An AI-powered logistics analytics dashboard and natural-language query interface
 
 Live URL: *Pending Vercel deployment*
 
+Video walkthrough: https://www.loom.com/share/bb352ff7768a437fb142327515d9c6cf
+
 ## 2. Setup
 
 1. Install dependencies:
