@@ -54,3 +54,4 @@ next-env.d.ts
 *.pfx
 credentials*.json
 secrets/
+docs/LOOM_SCRIPT.md
