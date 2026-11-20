@@ -61,7 +61,7 @@ Live URL: *Pending Vercel deployment*
 - **Tool routing with structured schemas:** Instead of generating SQL, the model chooses between two Zod-validated tools:
   - `query` (`QuerySpecSchema`): counts, rates, averages, and breakdowns by time grain or category dimension, with case-insensitive filter normalization and relative date resolution against `2026-01-01`.
   - `forecast` (`ForecastSpecSchema`): 1–6 month demand forecasts and inventory recommendations (`expectedDemand`, `safetyStock`, `recommended`) selecting between a 3-month moving average and linear trend by backtest MAE (default: learn from all 12 months and hold out Oct–Dec 2025). If the user names a base period ("based on the last 10 months") or a backtest length, the model sets optional `historyMonths` (4–12) and `backtestMonths`, and the engine rejects windows that leave fewer than 3 months to learn from.
-- **Guardrails:** Invalid filter/category inputs return a `QueryError` payload so the model can self-correct within the 3-step limit. Out-of-scope questions trigger a refusal without calling a tool. A runtime groundedness check replaces any response containing uncomputed numbers with deterministic `fallbackText`.
+- **Guardrails:** Invalid filter/category inputs return a `QueryError` payload so the model can self-correct within the 3-step limit. Out-of-scope questions trigger a refusal without calling a tool: if no tool returned a result, `app/api/chat/route.ts` discards the model's text and returns a fixed refusal message, so the model cannot answer general questions from its own knowledge. A runtime groundedness check replaces any response containing uncomputed numbers with deterministic `fallbackText`.
 
 ## 6. Metric Definitions and Assumptions
 

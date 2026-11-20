@@ -1,9 +1,5 @@
 import { NextResponse } from "next/server";
-import {
-  extractNumbers,
-  fallbackText,
-  isGrounded,
-} from "@/lib/ai/grounding";
+import { fallbackText, isGrounded } from "@/lib/ai/grounding";
 import { interpret } from "@/lib/ai/interpret";
 import { checkRateLimit } from "@/lib/ai/rateLimit";
 import type { TrajectoryEvent } from "@/lib/ai/trajectory";
@@ -72,13 +68,11 @@ export async function POST(req: Request) {
   let grounded = true;
   const allResults = interpretation.results.map((item) => item.result);
 
-  if (allResults.length === 0) {
-    const questionNums = new Set(extractNumbers(rawQuestion));
-    const textNums = extractNumbers(text);
-    if (textNums.some((n) => !questionNums.has(n))) {
-      text = OUT_OF_SCOPE_FALLBACK;
-      grounded = false;
-    }
+  // No tool result means nothing was computed. The model's own words are never
+  // shown in that case, so it cannot answer general questions.
+  const refused = allResults.length === 0;
+  if (refused) {
+    text = OUT_OF_SCOPE_FALLBACK;
   } else if (interpretation.result !== null) {
     if (text.trim().length === 0) {
       text = fallbackText(interpretation.result);
@@ -102,7 +96,11 @@ export async function POST(req: Request) {
     {
       id: "guard",
       kind: "guard",
-      label: grounded ? "Numbers verified" : "Answer replaced",
+      label: refused
+        ? "No tool called: fixed refusal"
+        : grounded
+          ? "Numbers verified"
+          : "Answer replaced",
       startMs: guardStart,
       durationMs: guardEnd - guardStart,
       payload: interpretation.text,
