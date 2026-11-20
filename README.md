@@ -98,7 +98,7 @@ Key assumptions:
 ## 8. Evaluation
 
 - **Unit tests (`npm test`):** 8 test files, 41 tests passing — asserting CSV row parsing, UTC relative date math (including `previousPeriod`), all golden values from `docs/PRD.md` section 6 / `docs/IMPLEMENTATION_PLAN.md` section 3, the "highest with at least 10 completed orders" ranking note, dashboard insights, chart selection rules, forecast backtest/inventory values, and groundedness checks. There are no UI component tests; the UI was checked manually in a browser (light and dark, 375px width, filters, chart clicks, chat).
-- **Routing eval (`npm run eval`):** 32 cases in `evals/routing.jsonl` covering queries, relative/absolute dates, filter normalization, forecasts, SKU fallback, and out-of-scope refusals — **32 / 32 passing** in the latest single run (it was 29 / 30 on the earlier 30-case set, before the scoring change below). Case 29 ("Show me delayed FedEx orders in the EU") used to fail because the model chose `order_count` with a `status = delayed` filter instead of `delayed_count`. Both forms return the same answer (5 orders); in three repeat runs the model produced three different equivalent specs. The eval compared specs field by field, so it under-counted here. `evals/run.ts` now falls back to comparing computed results (`key` and `value` rows from `runQuery`) when a query spec differs from the expected one, so equivalent specs pass and wrong ones still fail. In an earlier run, cases 25 and 29 passed only through this fallback; the latest run also used it for two cases.
+- **Routing eval (`npm run eval`):** 32 cases in `evals/routing.jsonl` covering queries, relative/absolute dates, filter normalization, forecasts, SKU fallback, and out-of-scope refusals — **32 / 32 passing** in the latest run. Scoring first compares the query spec field by field; if the spec differs, `evals/run.ts` falls back to comparing the computed results (`key` and `value` rows from `runQuery`), so equivalent specs pass and wrong ones still fail. The model is not deterministic: one earlier run scored 31 / 32, with "What will our revenue be next year?" routed to `forecast` instead of being refused.
 
 ## 9. Future Improvements
 
@@ -117,5 +117,12 @@ Key assumptions:
 ## 11. AI Tool Disclosure
 
 - **In the product:** the language model (OpenAI, set by `OPENAI_MODEL`, through the Vercel AI SDK) only picks a tool and fills a validated spec. Every number is computed by code, and narrative numbers are checked against tool output.
-- **In development:** Claude Code (Anthropic Claude models) was used to help write and review code and documentation, including the dashboard redesign, the engine additions (`previousPeriod`, ranking note, insights) and their tests, with smaller Claude subagents producing parts of the UI under review. All output was checked with the unit tests, lint, a production build and manual browser checks.
-- **[TODO, author to complete before submission]:** list any other AI tools used for earlier parts of the project (PRD, design, first implementation, eval cases) and what each was used for. This section only states what the repository history shows.
+- **In development, Claude Code (Anthropic Claude models):** used to write and review code and documentation. This covers:
+  - the dashboard redesign, the engine additions (`previousPeriod`, ranking note, insights) and their tests, with smaller Claude subagents producing parts of the UI under review;
+  - a review of the implementation against the assignment requirements;
+  - the eval scoring change (comparing computed results when a spec differs from the expected one) and the extra eval cases;
+  - the forecast `historyMonths` / `backtestMonths` options, with golden values computed separately and added as tests;
+  - building a knowledge graph of the codebase with graphify to trace how the dashboard reaches `runQuery()`;
+  - the project rename, a scan for secrets before the first push, `.gitignore` updates, and the README and `docs/` updates.
+- **In development, Google Antigravity:** used to write code.
+- **Verification:** AI output was checked with the unit tests, lint, type checking, a production build, the routing eval and manual browser checks. The author is responsible for the final code.
