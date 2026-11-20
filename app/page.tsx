@@ -2,6 +2,8 @@ import { PackageSearch, SearchX } from "lucide-react";
 import { Suspense } from "react";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { CarrierDelayChart } from "@/components/dashboard/CarrierDelayChart";
+import { DataTable, type TableOrder } from "@/components/dashboard/DataTable";
+import { ViewSwitcher } from "@/components/dashboard/ViewSwitcher";
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
 import { DeliveryPerformanceChart } from "@/components/dashboard/DeliveryPerformanceChart";
 import { FilterBar } from "@/components/dashboard/FilterBar";
@@ -98,6 +100,35 @@ async function DashboardContent({
           to: validTo || DATA_MAX,
         }
       : { type: "all" };
+
+  // Raw rows behind the dashboard: same filters and dates as the KPIs and charts.
+  const rangeFrom = validFrom || DATA_MIN;
+  const rangeTo = validTo || DATA_MAX;
+  const tableOrders: TableOrder[] = orders
+    .filter(
+      (o) =>
+        o.order_date >= rangeFrom &&
+        o.order_date <= rangeTo &&
+        (!carrierParam || o.carrier === carrierParam) &&
+        (!regionParam || o.region === regionParam) &&
+        (!warehouseParam || o.warehouse === warehouseParam) &&
+        (!categoryParam || o.product_category === categoryParam),
+    )
+    .map((o) => ({
+      order_id: o.order_id,
+      order_date: o.order_date,
+      delivery_date: o.delivery_date,
+      carrier: o.carrier,
+      origin_city: o.origin_city,
+      destination_city: o.destination_city,
+      status: o.status,
+      sku: o.sku,
+      product_category: o.product_category,
+      quantity: o.quantity,
+      order_value_usd: o.order_value_usd,
+      region: o.region,
+      warehouse: o.warehouse,
+    }));
 
   const baseSpec: QuerySpec = {
     metric: "order_count",
@@ -242,19 +273,26 @@ async function DashboardContent({
 
             <KpiCards items={kpis} />
 
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              <OrderVolumeChart data={volumeData} />
-              <DeliveryPerformanceChart data={performanceData} />
-            </div>
+            <ViewSwitcher
+              charts={
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                    <OrderVolumeChart data={volumeData} />
+                    <DeliveryPerformanceChart data={performanceData} />
+                  </div>
 
-            <div>
-              <CarrierDelayChart data={carrierData} />
-              {carrierNotes.length > 0 && (
-                <p className="mt-2 text-xs text-warn">
-                  Note: {carrierNotes.join("; ")}
-                </p>
-              )}
-            </div>
+                  <div>
+                    <CarrierDelayChart data={carrierData} />
+                    {carrierNotes.length > 0 && (
+                      <p className="mt-2 text-xs text-warn">
+                        Note: {carrierNotes.join("; ")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              }
+              table={<DataTable orders={tableOrders} />}
+            />
           </>
         )}
       </div>
