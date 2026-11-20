@@ -30,6 +30,7 @@ export type ChatEntry = {
   trajectory: TrajectoryEvent[];
   totalMs: number;
   model: string | null;
+  cached?: boolean;
 };
 
 export function AnswerCard({ entry }: { entry: ChatEntry }) {
@@ -64,6 +65,7 @@ export function AnswerCard({ entry }: { entry: ChatEntry }) {
   const meta = [
     referenceDate && `Reference date ${referenceDate}`,
     matchedOrders !== null && `${matchedOrders.toLocaleString("en-US")} orders matched`,
+    entry.cached && "Cached answer",
   ]
     .filter(Boolean)
     .join(" · ");

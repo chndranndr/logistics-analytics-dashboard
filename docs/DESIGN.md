@@ -8,7 +8,7 @@ Companion to [PRD.md](PRD.md). The PRD says what the product does and how metric
 2. **One engine, two callers.** The dashboard and the chat both call the same query engine, so a KPI and a chat answer for the same question cannot differ.
 3. **Business definitions live in one file.** "Delayed", "on-time rate", and the reference date are defined once and imported everywhere.
 4. **Everything is inspectable.** Each answer carries a trace of how it was produced.
-5. **Smallest thing that is correct.** 400 read-only rows do not need a database, an agent framework, or a cache.
+5. **Smallest thing that is correct.** 400 read-only rows do not need a database or an agent framework. The only cache is an in-memory map of chat answers (section 9.1).
 
 ## 2. Stack
 
@@ -252,6 +252,8 @@ question
 One request allows at most 3 model steps, enough for one self-correction after a validation error.
 
 A broad question ("How are we doing?") can lead the model to call a tool more than once within the step limit. Every successful result is kept: the narrative is checked against all of them together, and the answer card renders each result with its own trace.
+
+Answers are cached in memory per server instance (`lib/ai/answerCache.ts`). The key is the question, lowercased with spacing and trailing punctuation removed, plus a hash of the CSV, so a repeated question on unchanged data skips the model and the rate limit, and a changed CSV never serves an old answer. The cache holds at most 200 answers and drops the oldest first. A cached response gets a new trace id and `cached: true`, and the answer card shows "Cached answer".
 
 The endpoint returns one JSON response; it does not stream. Each question is independent, with no conversation memory. Both are deliberate: answers are short, and a stateless single response is simpler to test, trace, and evaluate. The cost is that a follow-up such as "and for UPS?" must be asked as a full question.
 

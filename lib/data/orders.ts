@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import fs from "fs";
 import path from "path";
 import { parse } from "csv-parse/sync";
@@ -86,6 +87,13 @@ export type Order = z.infer<typeof CsvRowSchema> & {
 };
 
 let cachedOrders: Order[] | null = null;
+let dataVersion = "";
+
+// Short hash of the CSV content. It changes whenever the data changes.
+export function getDataVersion(): string {
+  getOrders();
+  return dataVersion;
+}
 
 export function getOrders(): Order[] {
   if (cachedOrders !== null) {
@@ -94,6 +102,7 @@ export function getOrders(): Order[] {
 
   const filePath = path.join(process.cwd(), "data", "mock_logistics_data.csv");
   const content = fs.readFileSync(filePath, "utf8");
+  dataVersion = createHash("sha256").update(content).digest("hex").slice(0, 12);
   const records = parse(content, {
     columns: true,
     bom: true,

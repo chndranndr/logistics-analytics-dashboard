@@ -115,6 +115,7 @@ export function ChatPanel() {
         trajectory: Array.isArray(payload?.trajectory) ? payload.trajectory : [],
         totalMs: payload?.trace?.durationMs ?? 0,
         model: payload?.trace?.model ?? null,
+        cached: payload?.trace?.cached === true,
       };
 
       setEntries((prev) => [entry, ...prev]);

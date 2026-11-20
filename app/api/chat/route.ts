@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { fallbackText, isGrounded } from "@/lib/ai/grounding";
 import { interpret } from "@/lib/ai/interpret";
+import { getCachedAnswer, setCachedAnswer } from "@/lib/ai/answerCache";
 import { checkRateLimit } from "@/lib/ai/rateLimit";
+import { getDataVersion } from "@/lib/data/orders";
 import type { TrajectoryEvent } from "@/lib/ai/trajectory";
 import { REFERENCE_DATE } from "@/lib/domain/metrics";
 
@@ -37,6 +39,24 @@ export async function POST(req: Request) {
       },
       { status: 400 },
     );
+  }
+
+  // A repeated question on unchanged data returns the stored answer without
+  // calling the model, so it also skips the rate limit.
+  const dataVersion = getDataVersion();
+  const cached = getCachedAnswer<ChatResponse>(rawQuestion, dataVersion);
+  if (cached) {
+    return NextResponse.json({
+      ...cached,
+      trace: {
+        ...cached.trace,
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        question: rawQuestion,
+        durationMs: Date.now() - startedAt,
+        cached: true,
+      },
+    });
   }
 
   const forwarded = req.headers.get("x-forwarded-for");
@@ -144,15 +164,27 @@ export async function POST(req: Request) {
     inputTokens: interpretation.usage.inputTokens,
     outputTokens: interpretation.usage.outputTokens,
     durationMs: Date.now() - startedAt,
+    cached: false,
   };
 
   console.log(JSON.stringify(trace));
 
-  return NextResponse.json({
+  const response = {
     text,
     result: interpretation.result,
     results: interpretation.results,
     trace,
     trajectory,
-  });
+  };
+  setCachedAnswer(rawQuestion, dataVersion, response);
+
+  return NextResponse.json(response);
 }
+
+type ChatResponse = {
+  text: string;
+  result: unknown;
+  results: unknown;
+  trace: Record<string, unknown>;
+  trajectory: TrajectoryEvent[];
+};
