@@ -4,7 +4,7 @@
 
 An AI-powered logistics analytics dashboard and natural-language query interface over a 400-order dataset (`2025-01-01` to `2025-12-30`). Every number is computed deterministically by TypeScript engines; the language model selects a tool and fills a Zod-validated specification.
 
-Live URL: *Pending Vercel deployment*
+Live URL: https://logistics-analytics-dashboard-nine.vercel.app/
 
 Video walkthrough: https://www.loom.com/share/bb352ff7768a437fb142327515d9c6cf
 
